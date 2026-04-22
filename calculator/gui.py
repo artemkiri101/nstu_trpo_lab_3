@@ -184,11 +184,38 @@ class CalculatorGUI:
             self.update_display()
 
     def on_keypress(self, event):
-        key = event.char.upper()
-        if key == '\b':
+        """Обработка нажатий клавиш: допустимы только цифры, буквы A-F (в пределах основания),
+        точка (в вещественном режиме), Backspace, Enter, +, -, *, /, C."""
+        # Специальные клавиши без символа
+        if event.keysym == 'BackSpace':
             self.on_button('⌫')
-        elif key == '\r':
+            return
+        elif event.keysym == 'Return':
             self.on_button('=')
+            return
+        elif event.keysym == 'Escape':
+            self.on_button('C')
+            return
+
+        # Клавиши с символом
+        key = event.char.upper()
+        if not key:
+            return
+
+        # Допустимые цифры и буквы A-F (только если входят в текущее основание)
+        if key in '0123456789ABCDEF':
+            try:
+                # Проверяем, допустим ли символ в текущей системе счисления
+                digit_val = int(key, self.controller.base)
+                if 0 <= digit_val < self.controller.base:
+                    self.on_button(key)
+            except ValueError:
+                # Символ не является цифрой в данном основании — игнорируем
+                pass
+        # Десятичная точка (только в режиме действительных чисел)
+        elif key == '.' and self.controller.real_mode:
+            self.on_button('.')
+        # Знак минус (для смены знака, но и для операции вычитания)
         elif key == '-':
             self.on_button('-')
         elif key == '+':
@@ -197,18 +224,20 @@ class CalculatorGUI:
             self.on_button('*')
         elif key == '/':
             self.on_button('/')
-        elif key == '.':
-            self.on_button('.')
+        # Клавиша C (очистка всего) — уже обработана выше для Escape, но можно и по букве C
         elif key == 'C':
             self.on_button('C')
-        elif key == 'R':
-            self.on_button('Rev')
-        elif key == 'Q':
-            self.on_button('Sqr')
-        elif key == 'S':
-            self.on_button('√')
-        elif key in '0123456789ABCDEF':
-            self.on_button(key)
+        # Остальные клавиши (например, R, Q, S, G, H и т.д.) игнорируем без ошибок
+        # Если всё же хотите горячие клавиши для функций — раскомментируйте блок ниже с Ctrl
+        """
+        elif event.state & 0x4:   # Ctrl
+            if key == 'R':
+                self.on_button('Rev')
+            elif key == 'Q':
+                self.on_button('Sqr')
+            elif key == 'S':
+                self.on_button('√')
+        """
 
     def change_base_spin(self):
         try:
@@ -281,7 +310,7 @@ class CalculatorGUI:
                             "Операции: +, -, *, /, Sqr (квадрат), Rev (1/x), √ (квадратный корень)\n"
                             "Память: MC, MR, MS, M+\n"
                             "Буфер обмена: Ctrl+C, Ctrl+V\n"
-                            "Режимы: целые / действительные (меню Настройка)\n"\
+                            "Режимы: целые / действительные (меню Настройка)\n"
                             "© 2026.\n"
                             "Работу выполнили:\n"
                             "© Кириченко А. А.\n"
