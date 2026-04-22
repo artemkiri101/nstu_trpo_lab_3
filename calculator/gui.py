@@ -76,7 +76,7 @@ class CalculatorGUI:
         self.buttons_frame.pack(pady=5)
 
         static_buttons = [
-            ('MC', 0, 0), ('MR', 0, 1), ('MS', 0, 2), ('M+', 0, 3), ('C', 0, 4), ('CE', 0, 5),
+            ('MC', 0, 0), ('MR', 0, 1), ('MS', 0, 2), ('M+', 0, 3), ('AC', 0, 4), ('CE', 0, 5),
             ('7', 1, 0), ('8', 1, 1), ('9', 1, 2), ('/', 1, 3), ('*', 1, 4), ('⌫', 1, 5),
             ('4', 2, 0), ('5', 2, 1), ('6', 2, 2), ('-', 2, 3), ('+', 2, 4), ('=', 2, 5),
             ('1', 3, 0), ('2', 3, 1), ('3', 3, 2), ('Sqr', 3, 3), ('Rev', 3, 4), ('√', 3, 5),
@@ -124,7 +124,7 @@ class CalculatorGUI:
 
     def on_button(self, cmd):
         try:
-            if cmd == 'C':
+            if cmd == 'AC':
                 self.controller.clear_all()
                 self.update_display()
             elif cmd == 'CE':
@@ -184,9 +184,11 @@ class CalculatorGUI:
             self.update_display()
 
     def on_keypress(self, event):
-        """Обработка нажатий клавиш: допустимы только цифры, буквы A-F (в пределах основания),
-        точка (в вещественном режиме), Backspace, Enter, +, -, *, /, C."""
-        # Специальные клавиши без символа
+        # Ctrl+C – не перехватываем, чтобы работало копирование
+        if event.state & 0x4 and event.keysym == 'c':
+            return
+
+        # Специальные клавиши
         if event.keysym == 'BackSpace':
             self.on_button('⌫')
             return
@@ -194,50 +196,33 @@ class CalculatorGUI:
             self.on_button('=')
             return
         elif event.keysym == 'Escape':
-            self.on_button('C')
+            self.on_button('AC')   # очистка всего
             return
 
-        # Клавиши с символом
         key = event.char.upper()
         if not key:
             return
 
-        # Допустимые цифры и буквы A-F (только если входят в текущее основание)
+        # Цифры и буквы A-F (включая C) – ввод, если допустимы в текущем основании
         if key in '0123456789ABCDEF':
             try:
-                # Проверяем, допустим ли символ в текущей системе счисления
-                digit_val = int(key, self.controller.base)
-                if 0 <= digit_val < self.controller.base:
+                if int(key, self.controller.base) < self.controller.base:
                     self.on_button(key)
             except ValueError:
-                # Символ не является цифрой в данном основании — игнорируем
                 pass
-        # Десятичная точка (только в режиме действительных чисел)
-        elif key == '.' and self.controller.real_mode:
+            return
+
+        # Десятичная точка (только в вещественном режиме)
+        if key == '.' and self.controller.real_mode:
             self.on_button('.')
-        # Знак минус (для смены знака, но и для операции вычитания)
-        elif key == '-':
-            self.on_button('-')
-        elif key == '+':
-            self.on_button('+')
-        elif key == '*':
-            self.on_button('*')
-        elif key == '/':
-            self.on_button('/')
-        # Клавиша C (очистка всего) — уже обработана выше для Escape, но можно и по букве C
-        elif key == 'C':
-            self.on_button('C')
-        # Остальные клавиши (например, R, Q, S, G, H и т.д.) игнорируем без ошибок
-        # Если всё же хотите горячие клавиши для функций — раскомментируйте блок ниже с Ctrl
-        """
-        elif event.state & 0x4:   # Ctrl
-            if key == 'R':
-                self.on_button('Rev')
-            elif key == 'Q':
-                self.on_button('Sqr')
-            elif key == 'S':
-                self.on_button('√')
-        """
+            return
+
+        # Знаки операций
+        if key in '+-*/':
+            self.on_button(key)
+            return
+
+        # Остальные клавиши игнорируем
 
     def change_base_spin(self):
         try:
